@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cronómetro de Parejas</title>
+  <!-- Cargar Tailwind CSS desde CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Cargar la fuente Montserrat Bold desde Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
+  <style>
+    /* Fondo con imagen de Imgur */
+    body {
+      background: url("https://i.imgur.com/PcIG605.jpeg") no-repeat center center fixed;
+      background-size: cover;
+    }
+    /* Fuente Montserrat Bold para el título */
+    .titulo-principal {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+    }
+    /* Clase para que el cronómetro ocupe toda la pantalla */
+    .fullscreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="container mx-auto p-4">
+    <!-- Título Principal -->
+    <div class="bg-transparent rounded shadow p-8 mb-4">
+      <h1 class="titulo-principal text-5xl font-bold text-center">LENOVO PIT STOP SCRAPWORLD</h1>
+    </div>
+
+    <!-- (El cronómetro no se muestra en la pantalla de inicio) -->
+    <!-- Este elemento estará oculto hasta que se active en full screen -->
+    <div id="timerContainer" class="hidden rounded shadow p-8 bg-red-300">
+      <div id="timerDisplay" class="text-9xl font-bold text-center">00:00:000</div>
+    </div>
+
+    <!-- Clasificación -->
+    <div class="bg-transparent rounded shadow p-4 mb-4">
+      <h2 class="text-xl font-bold mb-4">Clasificación</h2>
+      <div class="flex justify-end mb-4">
+        <button id="exportCSV" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">
+          Exportar CSV
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posición</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre 1</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email 1</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre 2</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email 2</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo</th>
+            </tr>
+          </thead>
+          <tbody id="rankingTable" class="bg-white divide-y divide-gray-200">
+            <!-- Las filas se agregarán dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pareja en Carrera -->
+    <div class="bg-transparent rounded shadow p-4 mb-4">
+      <h2 class="text-xl font-bold">Pareja en Carrera:</h2>
+      <p id="currentPair" class="text-lg text-gray-800">Ninguna</p>
+    </div>
+
+    <!-- Botón para abrir el pop-up de "Agregar Pareja" -->
+    <div class="bg-transparent rounded shadow p-4 mb-4 flex justify-center">
+      <button id="openModal" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+        Agregar Pareja
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal para Agregar Pareja -->
+  <div id="modal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+    <div class="bg-white rounded shadow p-6 relative w-full max-w-lg">
+      <button id="closeModal" class="absolute top-2 right-2 text-gray-600 hover:text-gray-800 text-2xl">&times;</button>
+      <h2 class="text-xl font-bold mb-4">Agregar Pareja</h2>
+      <form id="pairForm" class="flex flex-col gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-gray-700">Nombre 1:</label>
+            <input type="text" id="name1Input" class="w-full border rounded px-2 py-1" required />
+          </div>
+          <div>
+            <label class="block text-gray-700">Email 1:</label>
+            <input type="email" id="email1Input" class="w-full border rounded px-2 py-1" required />
+          </div>
+          <div>
+            <label class="block text-gray-700">Nombre 2:</label>
+            <input type="text" id="name2Input" class="w-full border rounded px-2 py-1" required />
+          </div>
+          <div>
+            <label class="block text-gray-700">Email 2:</label>
+            <input type="email" id="email2Input" class="w-full border rounded px-2 py-1" required />
+          </div>
+        </div>
+        <div class="flex justify-end gap-4">
+          <button type="button" id="cancelModal" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+            Cancelar
+          </button>
+          <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+            Agregar Pareja
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // Array para almacenar las parejas
+    const pairs = [];
+    let currentPairIndex = 0;
+    let running = false;
+    let startTime = 0;
+    let timerInterval = null;
+
+    // Función para cambiar el color del recuadro del cronómetro
+    function setTimerContainerColor(colorClass) {
+      timerContainer.classList.remove("bg-red-300", "bg-yellow-300", "bg-green-300", "bg-orange-300");
+      timerContainer.classList.add(colorClass);
+    }
+
+    // Referencias a elementos de la interfaz
+    const exportCSVButton = document.getElementById("exportCSV");
+    const rankingTable = document.getElementById("rankingTable");
+    const currentPairEl = document.getElementById("currentPair");
+    const timerDisplay = document.getElementById("timerDisplay");
+    const timerContainer = document.getElementById("timerContainer");
+
+    // Referencias del modal y formulario
+    const openModalBtn = document.getElementById("openModal");
+    const closeModalBtn = document.getElementById("closeModal");
+    const cancelModalBtn = document.getElementById("cancelModal");
+    const modal = document.getElementById("modal");
+    const pairForm = document.getElementById("pairForm");
+    const name1Input = document.getElementById("name1Input");
+    const email1Input = document.getElementById("email1Input");
+    const name2Input = document.getElementById("name2Input");
+    const email2Input = document.getElementById("email2Input");
+
+    // Función para formatear el tiempo (mm:ss:ms)
+    function formatTime(timeInMs) {
+      const minutes = Math.floor(timeInMs / 60000);
+      const seconds = Math.floor((timeInMs % 60000) / 1000);
+      const milliseconds = Math.floor(timeInMs % 1000);
+      return (
+        String(minutes).padStart(2, "0") +
+        ":" +
+        String(seconds).padStart(2, "0") +
+        ":" +
+        String(milliseconds).padStart(3, "0")
+      );
+    }
+
+    // Comprueba si el tiempo dado es el mejor de la clasificación
+    function isBestTime(time) {
+      const times = pairs.filter(p => p.time != null).map(p => p.time);
+      if (times.length === 0) return true;
+      const bestTime = Math.min(...times);
+      return time <= bestTime;
+    }
+
+    // Actualiza la visualización del cronómetro
+    function updateTimerDisplay() {
+      const elapsed = performance.now() - startTime;
+      timerDisplay.textContent = formatTime(elapsed);
+    }
+
+    // Actualiza la pareja en carrera y reinicia el cronómetro para la nueva pareja
+    function updateCurrentPair() {
+      if (currentPairIndex < pairs.length) {
+        const pair = pairs[currentPairIndex];
+        currentPairEl.textContent = pair.name1 + " & " + pair.name2;
+        // Nuevo par: establecemos fondo rojo y reiniciamos el cronómetro
+        setTimerContainerColor("bg-red-300");
+        timerDisplay.textContent = "00:00:000";
+      } else {
+        currentPairEl.textContent = "Todas las parejas han corrido";
+      }
+    }
+
+    // Actualiza la tabla de clasificación ordenándola de menor a mayor tiempo
+    function updateRankingTable() {
+      const sorted = [...pairs].sort((a, b) => {
+        if (a.time != null && b.time != null) {
+          return a.time - b.time;
+        } else if (a.time != null) {
+          return -1;
+        } else if (b.time != null) {
+          return 1;
+        } else {
+          return 0;
+        }
+      });
+      rankingTable.innerHTML = "";
+      sorted.forEach((pair, index) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="px-6 py-4 whitespace-nowrap">${pair.time != null ? index + 1 : "-"}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${pair.name1}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${pair.email1}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${pair.name2}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${pair.email2}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${pair.time != null ? formatTime(pair.time) : "-"}</td>
+        `;
+        rankingTable.appendChild(row);
+      });
+    }
+
+    // Maneja el envío del formulario del modal para agregar una pareja
+    pairForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const name1 = name1Input.value.trim();
+      const email1 = email1Input.value.trim();
+      const name2 = name2Input.value.trim();
+      const email2 = email2Input.value.trim();
+      if (name1 && email1 && name2 && email2) {
+        pairs.push({ name1, email1, name2, email2, time: null });
+        name1Input.value = "";
+        email1Input.value = "";
+        name2Input.value = "";
+        email2Input.value = "";
+        updateCurrentPair();
+        updateRankingTable();
+        closeModal(); // Cierra el modal al agregar la pareja
+      }
+    });
+
+    // Maneja la pulsación de la barra espaciadora para iniciar/detener el cronómetro
+    window.addEventListener("keydown", function(e) {
+      if (document.activeElement.tagName.toLowerCase() === "input") return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (currentPairIndex >= pairs.length) return;
+        if (!running) {
+          // INICIAR: Se muestra el cronómetro en full screen (overlay) sin instrucciones
+          running = true;
+          startTime = performance.now();
+          timerInterval = setInterval(updateTimerDisplay, 10);
+          timerContainer.classList.remove("hidden");
+          timerContainer.classList.add("fullscreen");
+          setTimerContainerColor("bg-yellow-300");
+        } else {
+          // DETENER: Se para el cronómetro y se evalúa el tiempo
+          running = false;
+          clearInterval(timerInterval);
+          const elapsed = performance.now() - startTime;
+          pairs[currentPairIndex].time = elapsed;
+          timerDisplay.textContent = formatTime(elapsed);
+          if (isBestTime(elapsed)) {
+            setTimerContainerColor("bg-green-300");
+          } else {
+            setTimerContainerColor("bg-orange-300");
+          }
+          // Mantener el display full screen durante 5 segundos con el resultado,
+          // luego volver a ocultarlo y actualizar la siguiente pareja
+          setTimeout(function(){
+            timerContainer.classList.remove("fullscreen");
+            timerContainer.classList.add("hidden");
+            currentPairIndex++;
+            updateCurrentPair();
+            updateRankingTable();
+          }, 5000);
+        }
+      }
+    });
+
+    // Función para exportar la clasificación a CSV
+    function exportToCSV() {
+      const sorted = [...pairs].sort((a, b) => {
+        if (a.time != null && b.time != null) {
+          return a.time - b.time;
+        } else if (a.time != null) {
+          return -1;
+        } else if (b.time != null) {
+          return 1;
+        } else {
+          return 0;
+        }
+      });
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Posición,Nombre 1,Email 1,Nombre 2,Email 2,Tiempo\r\n";
+      sorted.forEach((pair, index) => {
+        const position = pair.time != null ? index + 1 : "";
+        const timeStr = pair.time != null ? formatTime(pair.time) : "";
+        csvContent += `${position},${pair.name1},${pair.email1},${pair.name2},${pair.email2},${timeStr}\r\n`;
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "clasificacion.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    exportCSVButton.addEventListener("click", exportToCSV);
+
+    // Funciones para abrir y cerrar el modal
+    function openModal() {
+      modal.classList.remove("hidden");
+    }
+    function closeModal() {
+      modal.classList.add("hidden");
+    }
+    openModalBtn.addEventListener("click", openModal);
+    closeModalBtn.addEventListener("click", closeModal);
+    cancelModalBtn.addEventListener("click", closeModal);
+  </script>
+</body>
+</html>
