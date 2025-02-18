@@ -12,7 +12,7 @@
   <!-- Cargar la fuente Montserrat Bold desde Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
   <style>
-    /* Fondo con imagen de Imgur */
+    /* Fondo con imagen */
     body {
       background: url("https://i.imgur.com/PcIG605.jpeg") no-repeat center center fixed;
       background-size: cover;
@@ -54,9 +54,7 @@
     <div class="bg-transparent rounded shadow p-4 mb-4">
       <h2 class="text-xl font-bold mb-4">Clasificación</h2>
       <div class="flex justify-end mb-4">
-        <button id="exportCSV" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">
-          Exportar CSV
-        </button>
+        <button id="exportCSV" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded">Exportar CSV</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -71,7 +69,7 @@
             </tr>
           </thead>
           <tbody id="rankingTable" class="bg-white divide-y divide-gray-200">
-            <!-- Las filas se agregarán dinámicamente -->
+            <!-- Se agregarán dinámicamente -->
           </tbody>
         </table>
       </div>
@@ -85,9 +83,7 @@
 
     <!-- Botón para abrir el pop-up de "Agregar Pareja" -->
     <div class="bg-transparent rounded shadow p-4 mb-4 flex justify-center">
-      <button id="openModal" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-        Agregar Pareja
-      </button>
+      <button id="openModal" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Agregar Pareja</button>
     </div>
   </div>
 
@@ -100,28 +96,24 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-gray-700">Nombre 1:</label>
-            <input type="text" id="name1Input" class="w-full border rounded px-2 py-1" required />
+            <input type="text" id="name1Input" class="w-full border rounded px-2 py-1" required>
           </div>
           <div>
             <label class="block text-gray-700">Email 1:</label>
-            <input type="email" id="email1Input" class="w-full border rounded px-2 py-1" required />
+            <input type="email" id="email1Input" class="w-full border rounded px-2 py-1" required>
           </div>
           <div>
             <label class="block text-gray-700">Nombre 2:</label>
-            <input type="text" id="name2Input" class="w-full border rounded px-2 py-1" required />
+            <input type="text" id="name2Input" class="w-full border rounded px-2 py-1" required>
           </div>
           <div>
             <label class="block text-gray-700">Email 2:</label>
-            <input type="email" id="email2Input" class="w-full border rounded px-2 py-1" required />
+            <input type="email" id="email2Input" class="w-full border rounded px-2 py-1" required>
           </div>
         </div>
         <div class="flex justify-end gap-4">
-          <button type="button" id="cancelModal" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
-            Cancelar
-          </button>
-          <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-            Agregar Pareja
-          </button>
+          <button type="button" id="cancelModal" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">Cancelar</button>
+          <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">Agregar Pareja</button>
         </div>
       </form>
     </div>
@@ -129,7 +121,6 @@
 
   <!-- Firebase Initialization -->
   <script>
-    // REEMPLAZA los valores de firebaseConfig con los de tu proyecto Firebase
     var firebaseConfig = {
       apiKey: "AIzaSyA__-XOEGBF5_Q3MCjrqgLEAMoElZxvE9c",
       authDomain: "pitf1lenovo.firebaseapp.com",
@@ -137,34 +128,36 @@
       projectId: "pitf1lenovo",
       storageBucket: "pitf1lenovo.firebasestorage.app",
       messagingSenderId: "830538696906",
-      appId: "1:830538696906:web:d2726f7e612c09c9be4c33"
+      appId: "1:830538696906:web:d2726f7e612c09c9be4c33",
+      measurementId: "G-H4TH04CZSV"
     };
-    // Inicializa Firebase
     firebase.initializeApp(firebaseConfig);
     var database = firebase.database();
   </script>
 
-  <!-- JavaScript de la aplicación -->
+  <!-- Lógica de la aplicación -->
   <script>
-    // Variables para el estado compartido
-    var pairs = [];          // Array local de parejas (se sincroniza con Firebase)
+    // Variables globales para el estado compartido
+    var pairs = [];           // Array local de parejas (sincronizado con Firebase)
     var activePairKey = null; // Clave de la pareja en carrera
 
     // --- Firebase Listeners ---
-    // Cuando se agrega una pareja
+    // Al agregar una pareja
     database.ref('pairs').on('child_added', function(snapshot) {
       var pair = snapshot.val();
       pair.key = snapshot.key;
-      pairs.push(pair);
-      // Si aún no hay pareja activa, la establecemos
-      if (!activePairKey) {
+      if (!pairs.find(p => p.key === pair.key)) {
+        pairs.push(pair);
+      }
+      // Si no hay pareja activa, se establece con la primera
+      if (!activePairKey && pair) {
         activePairKey = pair.key;
         database.ref('activePairKey').set(activePairKey);
       }
       updateRankingTable();
       updateCurrentPair();
     });
-    // Cuando se modifica una pareja (por ejemplo, al actualizar el tiempo)
+    // Al modificar una pareja (por ejemplo, al actualizar el tiempo)
     database.ref('pairs').on('child_changed', function(snapshot) {
       var updatedPair = snapshot.val();
       updatedPair.key = snapshot.key;
@@ -183,13 +176,13 @@
       updateCurrentPair();
     });
 
-    // Función para cambiar el color del recuadro del cronómetro
+    // Cambia el color del recuadro del cronómetro
     function setTimerContainerColor(colorClass) {
       timerContainer.classList.remove("bg-red-300", "bg-yellow-300", "bg-green-300", "bg-orange-300");
       timerContainer.classList.add(colorClass);
     }
 
-    // Referencias a elementos de la interfaz
+    // Referencias a elementos del DOM
     const exportCSVButton = document.getElementById("exportCSV");
     const rankingTable = document.getElementById("rankingTable");
     const currentPairEl = document.getElementById("currentPair");
@@ -212,7 +205,7 @@
     var startTime = 0;
     var timerInterval = null;
 
-    // Función para formatear el tiempo (mm:ss:ms)
+    // Formatea el tiempo en mm:ss:ms
     function formatTime(timeInMs) {
       const minutes = Math.floor(timeInMs / 60000);
       const seconds = Math.floor((timeInMs % 60000) / 1000);
@@ -226,7 +219,7 @@
       );
     }
 
-    // Comprueba si el tiempo dado es el mejor de la clasificación
+    // Determina si el tiempo dado es el mejor de la clasificación
     function isBestTime(time) {
       var times = pairs.filter(p => p.time != null).map(p => p.time);
       if (times.length === 0) return true;
@@ -250,11 +243,11 @@
       }
     }
 
-    // Actualiza la tabla de clasificación ordenándola de menor a mayor tiempo
+    // Actualiza la tabla de clasificación (ordenada de menor a mayor tiempo)
     function updateRankingTable() {
       var sorted = pairs.slice().filter(p => p.time != null).sort((a, b) => a.time - b.time);
       rankingTable.innerHTML = "";
-      sorted.forEach((pair, index) => {
+      sorted.forEach(function(pair, index) {
         var row = document.createElement("tr");
         row.innerHTML = `
           <td class="px-6 py-4 whitespace-nowrap">${index + 1}</td>
@@ -268,7 +261,7 @@
       });
     }
 
-    // --- Eventos del Modal ---
+    // Maneja el envío del formulario del modal para agregar una pareja
     pairForm.addEventListener("submit", function(e) {
       e.preventDefault();
       var name1 = name1Input.value.trim();
@@ -276,7 +269,6 @@
       var name2 = name2Input.value.trim();
       var email2 = email2Input.value.trim();
       if (name1 && email1 && name2 && email2) {
-        // Se envía la nueva pareja a Firebase
         database.ref('pairs').push({
           name1: name1,
           email1: email1,
@@ -284,7 +276,6 @@
           email2: email2,
           time: null
         });
-        // Si activePairKey aún no está definido, se actualizará en el listener child_added.
         name1Input.value = "";
         email1Input.value = "";
         name2Input.value = "";
@@ -293,16 +284,14 @@
       }
     });
 
-    // --- Cronómetro (controlado con la barra espaciadora) ---
+    // Maneja la pulsación de la barra espaciadora para iniciar/detener el cronómetro
     window.addEventListener("keydown", function(e) {
-      // Evitar si se está escribiendo en un input
       if (document.activeElement.tagName.toLowerCase() === "input") return;
       if (e.code === "Space") {
         e.preventDefault();
-        // Si no hay pareja activa, no hace nada
         if (!activePairKey) return;
         if (!running) {
-          // INICIAR: Mostrar cronómetro en full screen (overlay) sin texto de instrucciones, color amarillo
+          // INICIAR: Mostrar el cronómetro en full screen (overlay) sin instrucciones y color amarillo
           running = true;
           startTime = performance.now();
           timerInterval = setInterval(updateTimerDisplay, 10);
@@ -310,11 +299,10 @@
           timerContainer.classList.add("fullscreen");
           setTimerContainerColor("bg-yellow-300");
         } else {
-          // DETENER: Parar el cronómetro, actualizar tiempo en Firebase y mantener pantalla completa 5 segundos
+          // DETENER: Parar el cronómetro y actualizar el tiempo en Firebase
           running = false;
           clearInterval(timerInterval);
           var elapsed = performance.now() - startTime;
-          // Actualizar el tiempo de la pareja activa en Firebase
           database.ref('pairs/' + activePairKey).update({ time: elapsed });
           timerDisplay.textContent = formatTime(elapsed);
           if (isBestTime(elapsed)) {
@@ -322,25 +310,25 @@
           } else {
             setTimerContainerColor("bg-orange-300");
           }
-          // Después de 5 segundos, ocultar el overlay y avanzar a la siguiente pareja
+          // Mantener la vista full screen durante 5 segundos con el resultado,
+          // luego ocultar el overlay y avanzar a la siguiente pareja (si existe)
           setTimeout(function(){
             timerContainer.classList.remove("fullscreen");
             timerContainer.classList.add("hidden");
-            // Calcular la siguiente pareja (según orden de inserción)
-            var sorted = pairs.slice().sort((a, b) => a.key.localeCompare(b.key));
-            var currentIndex = sorted.findIndex(pair => pair.key === activePairKey);
-            var nextPair = sorted[currentIndex + 1];
+            // Avanzar a la siguiente pareja según el orden de inserción
+            var sortedPairs = pairs.slice().sort((a, b) => a.key.localeCompare(b.key));
+            var currentIndex = sortedPairs.findIndex(pair => pair.key === activePairKey);
+            var nextPair = sortedPairs[currentIndex + 1];
             if (nextPair) {
               database.ref('activePairKey').set(nextPair.key);
-            } else {
-              database.ref('activePairKey').set(null);
             }
+            // Si no hay siguiente pareja, se mantiene activePairKey (para conservar la clasificación)
           }, 5000);
         }
       }
     });
 
-    // --- Exportar a CSV ---
+    // Exportar la clasificación a CSV
     function exportToCSV() {
       var sorted = pairs.slice().filter(p => p.time != null).sort((a, b) => a.time - b.time);
       var csvContent = "data:text/csv;charset=utf-8,";
@@ -358,7 +346,7 @@
     }
     exportCSVButton.addEventListener("click", exportToCSV);
 
-    // --- Funciones para abrir y cerrar el modal ---
+    // Funciones para abrir y cerrar el modal
     function openModal() {
       modal.classList.remove("hidden");
     }
