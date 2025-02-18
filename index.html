@@ -6,6 +6,9 @@
   <title>Cronómetro de Parejas</title>
   <!-- Cargar Tailwind CSS desde CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Cargar Firebase (v8) desde CDN -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <!-- Cargar la fuente Montserrat Bold desde Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap" rel="stylesheet">
   <style>
@@ -34,6 +37,7 @@
   </style>
 </head>
 <body class="min-h-screen">
+  <!-- Contenido principal -->
   <div class="container mx-auto p-4">
     <!-- Título Principal -->
     <div class="bg-transparent rounded shadow p-8 mb-4">
@@ -123,14 +127,61 @@
     </div>
   </div>
 
-  <!-- JavaScript -->
+  <!-- Firebase Initialization -->
   <script>
-    // Array para almacenar las parejas
-    const pairs = [];
-    let currentPairIndex = 0;
-    let running = false;
-    let startTime = 0;
-    let timerInterval = null;
+    // REEMPLAZA los valores de firebaseConfig con los de tu proyecto Firebase
+    var firebaseConfig = {
+      apiKey: "AIzaSyA__-XOEGBF5_Q3MCjrqgLEAMoElZxvE9c",
+      authDomain: "pitf1lenovo.firebaseapp.com",
+      databaseURL: "https://pitf1lenovo.firebaseio.com",
+      projectId: "pitf1lenovo",
+      storageBucket: "pitf1lenovo.firebasestorage.app",
+      messagingSenderId: "830538696906",
+      appId: "1:830538696906:web:d2726f7e612c09c9be4c33"
+    };
+    // Inicializa Firebase
+    firebase.initializeApp(firebaseConfig);
+    var database = firebase.database();
+  </script>
+
+  <!-- JavaScript de la aplicación -->
+  <script>
+    // Variables para el estado compartido
+    var pairs = [];          // Array local de parejas (se sincroniza con Firebase)
+    var activePairKey = null; // Clave de la pareja en carrera
+
+    // --- Firebase Listeners ---
+    // Cuando se agrega una pareja
+    database.ref('pairs').on('child_added', function(snapshot) {
+      var pair = snapshot.val();
+      pair.key = snapshot.key;
+      pairs.push(pair);
+      // Si aún no hay pareja activa, la establecemos
+      if (!activePairKey) {
+        activePairKey = pair.key;
+        database.ref('activePairKey').set(activePairKey);
+      }
+      updateRankingTable();
+      updateCurrentPair();
+    });
+    // Cuando se modifica una pareja (por ejemplo, al actualizar el tiempo)
+    database.ref('pairs').on('child_changed', function(snapshot) {
+      var updatedPair = snapshot.val();
+      updatedPair.key = snapshot.key;
+      for (var i = 0; i < pairs.length; i++) {
+        if (pairs[i].key === updatedPair.key) {
+          pairs[i] = updatedPair;
+          break;
+        }
+      }
+      updateRankingTable();
+      updateCurrentPair();
+    });
+    // Listener para el puntero de la pareja activa
+    database.ref('activePairKey').on('value', function(snapshot) {
+      activePairKey = snapshot.val();
+      updateCurrentPair();
+    });
 
     // Función para cambiar el color del recuadro del cronómetro
     function setTimerContainerColor(colorClass) {
@@ -156,6 +207,11 @@
     const name2Input = document.getElementById("name2Input");
     const email2Input = document.getElementById("email2Input");
 
+    // Variables para el cronómetro
+    var running = false;
+    var startTime = 0;
+    var timerInterval = null;
+
     // Función para formatear el tiempo (mm:ss:ms)
     function formatTime(timeInMs) {
       const minutes = Math.floor(timeInMs / 60000);
@@ -172,9 +228,9 @@
 
     // Comprueba si el tiempo dado es el mejor de la clasificación
     function isBestTime(time) {
-      const times = pairs.filter(p => p.time != null).map(p => p.time);
+      var times = pairs.filter(p => p.time != null).map(p => p.time);
       if (times.length === 0) return true;
-      const bestTime = Math.min(...times);
+      var bestTime = Math.min(...times);
       return time <= bestTime;
     }
 
@@ -184,14 +240,11 @@
       timerDisplay.textContent = formatTime(elapsed);
     }
 
-    // Actualiza la pareja en carrera y reinicia el cronómetro para la nueva pareja
+    // Actualiza la pareja en carrera según activePairKey
     function updateCurrentPair() {
-      if (currentPairIndex < pairs.length) {
-        const pair = pairs[currentPairIndex];
-        currentPairEl.textContent = pair.name1 + " & " + pair.name2;
-        // Nuevo par: establecemos fondo rojo y reiniciamos el cronómetro
-        setTimerContainerColor("bg-red-300");
-        timerDisplay.textContent = "00:00:000";
+      var activePair = pairs.find(pair => pair.key === activePairKey);
+      if (activePair) {
+        currentPairEl.textContent = activePair.name1 + " & " + activePair.name2;
       } else {
         currentPairEl.textContent = "Todas las parejas han corrido";
       }
@@ -199,59 +252,57 @@
 
     // Actualiza la tabla de clasificación ordenándola de menor a mayor tiempo
     function updateRankingTable() {
-      const sorted = [...pairs].sort((a, b) => {
-        if (a.time != null && b.time != null) {
-          return a.time - b.time;
-        } else if (a.time != null) {
-          return -1;
-        } else if (b.time != null) {
-          return 1;
-        } else {
-          return 0;
-        }
-      });
+      var sorted = pairs.slice().filter(p => p.time != null).sort((a, b) => a.time - b.time);
       rankingTable.innerHTML = "";
       sorted.forEach((pair, index) => {
-        const row = document.createElement("tr");
+        var row = document.createElement("tr");
         row.innerHTML = `
-          <td class="px-6 py-4 whitespace-nowrap">${pair.time != null ? index + 1 : "-"}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${index + 1}</td>
           <td class="px-6 py-4 whitespace-nowrap">${pair.name1}</td>
           <td class="px-6 py-4 whitespace-nowrap">${pair.email1}</td>
           <td class="px-6 py-4 whitespace-nowrap">${pair.name2}</td>
           <td class="px-6 py-4 whitespace-nowrap">${pair.email2}</td>
-          <td class="px-6 py-4 whitespace-nowrap">${pair.time != null ? formatTime(pair.time) : "-"}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${formatTime(pair.time)}</td>
         `;
         rankingTable.appendChild(row);
       });
     }
 
-    // Maneja el envío del formulario del modal para agregar una pareja
+    // --- Eventos del Modal ---
     pairForm.addEventListener("submit", function(e) {
       e.preventDefault();
-      const name1 = name1Input.value.trim();
-      const email1 = email1Input.value.trim();
-      const name2 = name2Input.value.trim();
-      const email2 = email2Input.value.trim();
+      var name1 = name1Input.value.trim();
+      var email1 = email1Input.value.trim();
+      var name2 = name2Input.value.trim();
+      var email2 = email2Input.value.trim();
       if (name1 && email1 && name2 && email2) {
-        pairs.push({ name1, email1, name2, email2, time: null });
+        // Se envía la nueva pareja a Firebase
+        database.ref('pairs').push({
+          name1: name1,
+          email1: email1,
+          name2: name2,
+          email2: email2,
+          time: null
+        });
+        // Si activePairKey aún no está definido, se actualizará en el listener child_added.
         name1Input.value = "";
         email1Input.value = "";
         name2Input.value = "";
         email2Input.value = "";
-        updateCurrentPair();
-        updateRankingTable();
-        closeModal(); // Cierra el modal al agregar la pareja
+        closeModal();
       }
     });
 
-    // Maneja la pulsación de la barra espaciadora para iniciar/detener el cronómetro
+    // --- Cronómetro (controlado con la barra espaciadora) ---
     window.addEventListener("keydown", function(e) {
+      // Evitar si se está escribiendo en un input
       if (document.activeElement.tagName.toLowerCase() === "input") return;
       if (e.code === "Space") {
         e.preventDefault();
-        if (currentPairIndex >= pairs.length) return;
+        // Si no hay pareja activa, no hace nada
+        if (!activePairKey) return;
         if (!running) {
-          // INICIAR: Se muestra el cronómetro en full screen (overlay) sin instrucciones
+          // INICIAR: Mostrar cronómetro en full screen (overlay) sin texto de instrucciones, color amarillo
           running = true;
           startTime = performance.now();
           timerInterval = setInterval(updateTimerDisplay, 10);
@@ -259,62 +310,55 @@
           timerContainer.classList.add("fullscreen");
           setTimerContainerColor("bg-yellow-300");
         } else {
-          // DETENER: Se para el cronómetro y se evalúa el tiempo
+          // DETENER: Parar el cronómetro, actualizar tiempo en Firebase y mantener pantalla completa 5 segundos
           running = false;
           clearInterval(timerInterval);
-          const elapsed = performance.now() - startTime;
-          pairs[currentPairIndex].time = elapsed;
+          var elapsed = performance.now() - startTime;
+          // Actualizar el tiempo de la pareja activa en Firebase
+          database.ref('pairs/' + activePairKey).update({ time: elapsed });
           timerDisplay.textContent = formatTime(elapsed);
           if (isBestTime(elapsed)) {
             setTimerContainerColor("bg-green-300");
           } else {
             setTimerContainerColor("bg-orange-300");
           }
-          // Mantener el display full screen durante 5 segundos con el resultado,
-          // luego volver a ocultarlo y actualizar la siguiente pareja
+          // Después de 5 segundos, ocultar el overlay y avanzar a la siguiente pareja
           setTimeout(function(){
             timerContainer.classList.remove("fullscreen");
             timerContainer.classList.add("hidden");
-            currentPairIndex++;
-            updateCurrentPair();
-            updateRankingTable();
+            // Calcular la siguiente pareja (según orden de inserción)
+            var sorted = pairs.slice().sort((a, b) => a.key.localeCompare(b.key));
+            var currentIndex = sorted.findIndex(pair => pair.key === activePairKey);
+            var nextPair = sorted[currentIndex + 1];
+            if (nextPair) {
+              database.ref('activePairKey').set(nextPair.key);
+            } else {
+              database.ref('activePairKey').set(null);
+            }
           }, 5000);
         }
       }
     });
 
-    // Función para exportar la clasificación a CSV
+    // --- Exportar a CSV ---
     function exportToCSV() {
-      const sorted = [...pairs].sort((a, b) => {
-        if (a.time != null && b.time != null) {
-          return a.time - b.time;
-        } else if (a.time != null) {
-          return -1;
-        } else if (b.time != null) {
-          return 1;
-        } else {
-          return 0;
-        }
-      });
-      let csvContent = "data:text/csv;charset=utf-8,";
+      var sorted = pairs.slice().filter(p => p.time != null).sort((a, b) => a.time - b.time);
+      var csvContent = "data:text/csv;charset=utf-8,";
       csvContent += "Posición,Nombre 1,Email 1,Nombre 2,Email 2,Tiempo\r\n";
-      sorted.forEach((pair, index) => {
-        const position = pair.time != null ? index + 1 : "";
-        const timeStr = pair.time != null ? formatTime(pair.time) : "";
-        csvContent += `${position},${pair.name1},${pair.email1},${pair.name2},${pair.email2},${timeStr}\r\n`;
+      sorted.forEach(function(pair, index) {
+        csvContent += (index + 1) + "," + pair.name1 + "," + pair.email1 + "," + pair.name2 + "," + pair.email2 + "," + formatTime(pair.time) + "\r\n";
       });
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
+      var encodedUri = encodeURI(csvContent);
+      var link = document.createElement("a");
       link.setAttribute("href", encodedUri);
       link.setAttribute("download", "clasificacion.csv");
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
-
     exportCSVButton.addEventListener("click", exportToCSV);
 
-    // Funciones para abrir y cerrar el modal
+    // --- Funciones para abrir y cerrar el modal ---
     function openModal() {
       modal.classList.remove("hidden");
     }
